@@ -10,8 +10,6 @@
 
 @interface NVBannerView : UIView
 
-@property (nonatomic) NSInteger bannerCount;
-
-- (void)makeBannerItems:(UIView *(^)(NSInteger index))createItem;
+@property (nonatomic, strong) NSArray *bannerViews;
 
 @end

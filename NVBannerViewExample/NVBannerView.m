@@ -8,16 +8,25 @@
 
 #import "NVBannerView.h"
 
-typedef NS_ENUM(NSInteger, NVScrollState) {
-    NVScrollStateFirst,
-    NVScrollStateEnd,
-};
+
+@interface UIView (Copy)
+
++ (UIView*)copyWith:(UIView *)view;
+
+@end
+
+@implementation UIView (Copy)
+
++ (UIView*)copyWith:(UIView *)view; {
+    NSData * tempArchive = [NSKeyedArchiver archivedDataWithRootObject:view];
+    return [NSKeyedUnarchiver unarchiveObjectWithData:tempArchive];
+}
+
+@end
 
 @interface NVBannerView () <UIScrollViewDelegate>
 
 @property (nonatomic, strong) UIScrollView *scrollView;
-@property (nonatomic, strong) NSMutableArray *scrollItems;
-@property (nonatomic) NVScrollState scrollState;
 
 @end
 
@@ -25,7 +34,6 @@ typedef NS_ENUM(NSInteger, NVScrollState) {
 
 - (instancetype)initWithCoder:(NSCoder *)aDecoder {
     if ([super initWithCoder:aDecoder]) {
-        self.scrollState = NVScrollStateFirst;
         [self addSubview:self.scrollView];
     }
     return self;
@@ -37,81 +45,32 @@ typedef NS_ENUM(NSInteger, NVScrollState) {
     
     self.scrollView.frame = CGRectMake(0, 0, width, height);
 
-    for (UIView *view in self.scrollItems) {
-        NSInteger index = [self.scrollItems indexOfObject:view];
+    for (UIView *view in self.bannerViews) {
+        NSInteger index = [self.bannerViews indexOfObject:view];
         view.frame = CGRectMake(index*width, 0, width, height);
     }
-    
-    if (self.bannerCount > 1) {
-        self.scrollView.contentSize = CGSizeMake(self.scrollItems.count*width, height);
-        CGFloat x = self.scrollState == NVScrollStateFirst ? width : (self.scrollItems.count-2)*width;
-        self.scrollView.contentOffset = CGPointMake(x, 0);
-    }
-    
-}
-
-- (void)makeBannerItems:(UIView *(^)(NSInteger index))createItem {
-    for (NSInteger i = 0; i<self.bannerCount; i++) {
-        UIView *banner = createItem(i);
-        [self.scrollItems addObject:banner];
-    }
-    if (self.bannerCount > 1) {
-        self.bannerCount > 2 ? [self bringEndItemToFirst] : [self swapItem];
-    } else {
-        [self addItemToScrollView];
-    }
-    [self setNeedsLayout];
+    self.scrollView.contentSize = CGSizeMake(width*self.bannerViews.count, height);
+    self.scrollView.contentOffset = CGPointMake(width, 0);
 }
 
 - (void)addItemToScrollView {
     [self.scrollView.subviews makeObjectsPerformSelector:@selector(removeFromSuperview)];
-    for (UIView *view in self.scrollItems) {
+    for (UIView *view in self.bannerViews) {
         [self.scrollView addSubview:view];
     }
 }
 
-- (void)takeFirstItemToEnd {
-    UIView *firstV = self.scrollItems[0];
-    [self.scrollItems removeObjectAtIndex:0];
-    [self.scrollItems addObject:firstV];
-    [self addItemToScrollView];
-}
-
-- (void)bringEndItemToFirst {
-    UIView *endV = self.scrollItems.lastObject;
-    [self.scrollItems removeLastObject];
-    [self.scrollItems insertObject:endV atIndex:0];
-    [self addItemToScrollView];
-}
-
-- (void)swapItem {
-    UIView *firstV = self.scrollItems[0];
-    UIView *midV = self.scrollItems[1];
-    [self.scrollItems removeAllObjects];
-    NSData *tempArchiveView = [NSKeyedArchiver archivedDataWithRootObject:midV];
-    UIView *midCopy = [NSKeyedUnarchiver unarchiveObjectWithData:tempArchiveView];
-    [self.scrollItems addObjectsFromArray:@[midCopy, firstV, midV]];
-    [self addItemToScrollView];
-}
-
 #pragma mark - UIScrollViewDelegate
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView; {
     CGFloat width = CGRectGetWidth(self.bounds);
-    
-    if (scrollView.contentOffset.x >= (self.scrollItems.count-1)*width) {
-        if (scrollView.tracking == NO) {
-            self.scrollState = NVScrollStateEnd;
-            self.bannerCount > 2 ? [self takeFirstItemToEnd] : [self swapItem];
-            [self setNeedsLayout];
-        }
-    } else if (scrollView.contentOffset.x == 0) {
-        if (scrollView.tracking == NO) {
-            self.scrollState = NVScrollStateFirst;
-            self.bannerCount > 2 ? [self bringEndItemToFirst] : [self swapItem];
-            [self setNeedsLayout];
-        }
+    if (scrollView.contentOffset.x == 0) {
+        scrollView.contentOffset = CGPointMake(width*(self.bannerViews.count-2), scrollView.contentOffset.y);
     }
     
+    if (scrollView.contentOffset.x == width*(self.bannerViews.count-1)) {
+        scrollView.contentOffset = CGPointMake(width, scrollView.contentOffset.y);
+    }
 }
 
 #pragma mark - getter and setter
@@ -127,11 +86,14 @@ typedef NS_ENUM(NSInteger, NVScrollState) {
     return _scrollView;
 }
 
-- (NSMutableArray *)scrollItems {
-    if (_scrollItems == nil) {
-        _scrollItems = [NSMutableArray new];
-    }
-    return _scrollItems;
+- (void)setBannerViews:(NSArray *)bannerViews {
+    UIView *firstView = [UIView copyWith:bannerViews[0]];
+    UIView *endView = [UIView copyWith:bannerViews.lastObject];
+    NSMutableArray *views = [NSMutableArray arrayWithArray:bannerViews];
+    [views insertObject:endView atIndex:0];
+    [views addObject:firstView];
+    _bannerViews = [NSArray arrayWithArray:views];
+    [self addItemToScrollView];
 }
 
 @end

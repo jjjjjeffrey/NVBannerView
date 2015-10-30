@@ -20,13 +20,26 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
 
+    
+}
+
+- (void)viewWillLayoutSubviews {
     NSArray *colors = @[[UIColor purpleColor], [UIColor brownColor], [UIColor blackColor], [UIColor redColor]];
-    self.bannerView.bannerCount = 4;
-    [self.bannerView makeBannerItems:^UIView *(NSInteger index) {
-        UIView *banner = [UIView new];
-        banner.backgroundColor = colors[index];
-        return banner;
-    }];
+    NSMutableArray *views = [NSMutableArray new];
+    for (UIColor *color in colors) {
+        NSInteger index = [colors indexOfObject:color];
+        UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, CGRectGetWidth(self.view.frame), CGRectGetHeight(self.bannerView.frame))];
+        view.backgroundColor = color;
+        [views addObject:view];
+        
+        UILabel *label = [UILabel new];
+        label.textColor = [UIColor whiteColor];
+        label.text = [NSString stringWithFormat:@"第%ld张", index+1];
+        [label sizeToFit];
+        label.center = CGPointMake(CGRectGetWidth(view.frame)/2, CGRectGetHeight(view.frame)/2);
+        [view addSubview:label];
+    }
+    self.bannerView.bannerViews = views;
 }
 
 - (void)didReceiveMemoryWarning {
